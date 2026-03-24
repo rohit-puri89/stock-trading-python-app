@@ -1,0 +1,51 @@
+name: Daily Stock Ticker Load
+
+on:
+  schedule:
+    # Run at both 16:00 and 17:00 UTC; job below gates to exactly 9 AM America/Los_Angeles
+    - cron: "0 16,17 * * *"
+  workflow_dispatch:
+
+jobs:
+  load-to-snowflake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run only at 9 AM Pacific
+        id: gate
+        run: |
+          python - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          now_pt = datetime.now(ZoneInfo("America/Los_Angeles"))
+          should_run = now_pt.hour == 9
+          with open("gate_output.txt", "w", encoding="utf-8") as f:
+            f.write("true" if should_run else "false")
+          print(f"Current Pacific time: {now_pt.isoformat()} | should_run={should_run}")
+          PY
+          echo "should_run=$(cat gate_output.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Execute ticker load
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          SNOWFLAKE_TABLE: ${{ secrets.SNOWFLAKE_TABLE }}
+        run: python script.py
