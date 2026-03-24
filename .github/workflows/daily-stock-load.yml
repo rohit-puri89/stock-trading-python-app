@@ -40,6 +40,18 @@ jobs:
         if: github.event_name != 'workflow_dispatch' && steps.gate.outputs.should_run != 'true'
         run: echo "Not 10:45 Pacific — skipping load. Manual runs always execute the load step."
 
+
+      - name: Verify Secrets are Loaded
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
+        env:
+          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+        run: |
+          if [ -z "$MASSIVE_API_KEY" ]; then
+            echo "❌ ERROR: MASSIVE_API_KEY is EMPTY in GitHub Secrets!"
+            exit 1
+          else
+            echo "✅ SUCCESS: MASSIVE_API_KEY is found (Length: ${#MASSIVE_API_KEY} characters)"
+          fi
       # Manual "Run workflow" should always load. Scheduled runs only at 10:45 Pacific.
       - name: Execute ticker load
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
