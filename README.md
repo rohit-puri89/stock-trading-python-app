@@ -9,7 +9,7 @@ The main script is `script.py`. It handles API pagination + rate limits, resumes
 - `requests` - used to call Massive ticker API endpoints.
 - `python-dotenv` - loads local `.env` values into environment variables.
 - `snowflake-connector-python` - connects to Snowflake and executes SQL inserts.
-- `openai` - currently not used by this pipeline; can be removed if not needed for future work.
+
 
 ## Quick start
 
@@ -37,7 +37,7 @@ SNOWFLAKE_TABLE=ticker
 
 ### 1) Local scheduler
 
-`scheduler.py` runs the load daily at 9:00 AM Pacific.
+`scheduler.py` runs the load daily at 10:45 Pacific (`America/Los_Angeles`, PST/PDT aware).
 
 ```bash
 .venv/bin/python scheduler.py
@@ -63,9 +63,11 @@ Add these repository secrets in GitHub Actions settings:
 
 Then run the workflow once manually from the Actions tab to confirm everything works.
 
+**Manual vs scheduled:** `Run workflow` always runs the Snowflake load. On the cron schedule, the load runs only when the runner’s Pacific time is **10:45** (so a green workflow can still mean “skipped” if you weren’t in that minute—check the job log for “Execute ticker load”).
+
 ## Data notes
 
-- `LAST_UPDATED_UTC` is stored as timestamp (`TIMESTAMP_TZ`)
+- `LAST_UPDATED_UTC` is stored as `TIMESTAMP_NTZ` in the table DDL (values inserted via `TO_TIMESTAMP_TZ`)
 - `INSERT_TIMESTAMP` is set at load time using `CURRENT_TIMESTAMP()`
 
 ## Quick validation query

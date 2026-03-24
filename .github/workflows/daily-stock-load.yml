@@ -2,8 +2,8 @@ name: Daily Stock Ticker Load
 
 on:
   schedule:
-    # Run at both 16:00 and 17:00 UTC; job below gates to exactly 9 AM America/Los_Angeles
-    - cron: "0 16,17 * * *"
+    # 17:45 / 18:45 UTC covers 10:45 America/Los_Angeles (PDT vs PST); gate pins to that local minute
+    - cron: "45 17,18 * * *"
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run only at 9 AM Pacific
+      - name: Run only at 10:45 Pacific
         id: gate
         run: |
           python - <<'PY'
@@ -29,15 +29,20 @@ jobs:
           from zoneinfo import ZoneInfo
 
           now_pt = datetime.now(ZoneInfo("America/Los_Angeles"))
-          should_run = now_pt.hour == 9
+          should_run = now_pt.hour == 10 and now_pt.minute == 45
           with open("gate_output.txt", "w", encoding="utf-8") as f:
             f.write("true" if should_run else "false")
           print(f"Current Pacific time: {now_pt.isoformat()} | should_run={should_run}")
           PY
           echo "should_run=$(cat gate_output.txt)" >> "$GITHUB_OUTPUT"
 
+      - name: Skip load (scheduled run outside 10:45 Pacific)
+        if: github.event_name != 'workflow_dispatch' && steps.gate.outputs.should_run != 'true'
+        run: echo "Not 10:45 Pacific — skipping load. Manual runs always execute the load step."
+
+      # Manual "Run workflow" should always load. Scheduled runs only at 10:45 Pacific.
       - name: Execute ticker load
-        if: steps.gate.outputs.should_run == 'true'
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
         env:
           MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}

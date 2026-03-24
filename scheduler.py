@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 from script import run_ticker_export
 
 PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
-TARGET_HOUR = 9
-TARGET_MINUTE = 0
+TARGET_HOUR = 10
+TARGET_MINUTE = 45
 
 
 def run_scheduler() -> None:
